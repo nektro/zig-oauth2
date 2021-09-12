@@ -113,7 +113,7 @@ pub const providers = struct {
 };
 
 pub const dynamic_providers = struct {
-    pub var _gitea = Provider{
+    pub const _gitea = Provider{
         .id = "_gitea",
         .authorize_url = "https://{domain}/login/oauth/authorize",
         .token_url = "https://{domain}/login/oauth/access_token",
@@ -123,7 +123,7 @@ pub const dynamic_providers = struct {
         .logo = icon_url("gitea"),
         .color = "#609926",
     };
-    pub var _gitlab = Provider{
+    pub const _gitlab = Provider{
         .id = "_gitlab",
         .authorize_url = "https://{domain}/oauth/authorize",
         .token_url = "https://{domain}/oauth/token",
@@ -134,7 +134,7 @@ pub const dynamic_providers = struct {
         .logo = icon_url("gitlab"),
         .color = "#FCA121",
     };
-    pub var _mastodon = Provider{
+    pub const _mastodon = Provider{
         .id = "_mastodon",
         .authorize_url = "https://{domain}/oauth/authorize",
         .token_url = "https://{domain}/oauth/token",
@@ -145,7 +145,7 @@ pub const dynamic_providers = struct {
         .logo = icon_url("mastodon"),
         .color = "#3088D4",
     };
-    pub var _pleroma = Provider{
+    pub const _pleroma = Provider{
         .id = "_pleroma",
         .authorize_url = "https://{domain}/oauth/authorize",
         .token_url = "https://{domain}/oauth/token",
