@@ -8,6 +8,7 @@ const pek = @import("pek");
 const uri = @import("uri");
 const zfetch = @import("zfetch");
 const json = @import("json");
+const extras = @import("extras");
 
 pub const Provider = struct {
     id: string,
@@ -241,7 +242,7 @@ pub fn Handlers(comptime T: type) type {
 
             var headers = zfetch.Headers.init(alloc);
             try headers.appendValue("Content-Type", "application/x-www-form-urlencoded");
-            try headers.appendValue("Authorization", try std.fmt.allocPrint(alloc, "Basic {s}", .{try base64EncodeAlloc(alloc, try std.mem.join(alloc, ":", &.{ client.id, client.secret }))}));
+            try headers.appendValue("Authorization", try std.fmt.allocPrint(alloc, "Basic {s}", .{try extras.base64EncodeAlloc(alloc, try std.mem.join(alloc, ":", &.{ client.id, client.secret }))}));
             try headers.appendValue("Accept", "application/json");
 
             // TODO print error message to response if this fails
@@ -308,12 +309,6 @@ fn fixId(alloc: *std.mem.Allocator, id: json.Value) !string {
         .Float => |v| return try std.fmt.allocPrint(alloc, "{d}", .{v}),
         else => unreachable,
     };
-}
-
-fn base64EncodeAlloc(alloc: *std.mem.Allocator, input: string) !string {
-    const base64 = std.base64.standard_encoder;
-    var buf = try alloc.alloc(u8, base64.calcSize(input.len));
-    return base64.encode(buf, input);
 }
 
 //
