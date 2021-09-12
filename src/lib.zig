@@ -27,6 +27,7 @@ pub const providers = struct {
         return "https://unpkg.com/simple-icons@" ++ "5.13.0" ++ "/icons/" ++ name ++ ".svg";
     }
 
+pub const providers = struct {
     pub var amazon = Provider{
         .id = "amazon",
         .authorize_url = "https://www.amazon.com/ap/oa",
@@ -110,7 +111,9 @@ pub const providers = struct {
         .logo = icon_url("reddit"),
         .color = "#FF4500",
     };
+};
 
+pub const dynamic_providers = struct {
     pub var _gitea = Provider{
         .id = "_gitea",
         .authorize_url = "https://{domain}/login/oauth/authorize",
