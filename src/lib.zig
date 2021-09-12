@@ -2,6 +2,12 @@
 //
 const std = @import("std");
 const string = []const u8;
+const http = @import("apple_pie");
+const files = @import("self/files");
+const pek = @import("pek");
+const uri = @import("uri");
+const zfetch = @import("zfetch");
+const json = @import("json");
 
 pub const Provider = struct {
     id: string,
@@ -167,3 +173,175 @@ pub fn providerById(name: string) ?Provider {
     }
     return null;
 }
+
+pub fn clientByProviderId(clients: []const Client, name: string) ?Client {
+    for (clients) |item| {
+        if (std.mem.eql(u8, name, item.provider.id)) {
+            return item;
+        }
+    }
+    return null;
+}
+
+pub const IsLoggedInFn = fn (http.Request) anyerror!bool;
+
+pub fn Handlers(comptime T: type) type {
+    comptime std.debug.assert(@hasDecl(T, "Ctx"));
+    comptime std.debug.assert(@hasDecl(T, "isLoggedIn"));
+    comptime std.debug.assert(@hasDecl(T, "doneUrl"));
+    comptime std.debug.assert(@hasDecl(T, "saveInfo"));
+
+    return struct {
+        const Self = @This();
+        pub var clients: []Client = &.{};
+        pub var callbackPath: string = "";
+
+        pub fn login(_: T.Ctx, response: *http.Response, request: http.Request, args: struct {}) !void {
+            _ = args;
+
+            const alloc = request.arena;
+            const query = try request.context.url.queryParameters(alloc);
+
+            if (query.get("with")) |with| {
+                const client = clientByProviderId(Self.clients, with) orelse return try fail(response, "Client with that ID not found!\n", .{});
+                return try loginOne(response, request, T, client, Self.callbackPath);
+            }
+
+            if (Self.clients.len == 1) {
+                return try loginOne(response, request, T, clients[0], Self.callbackPath);
+            }
+
+            try response.headers.put("Content-Type", "text/html");
+            const page = comptime files.open("/selector.pek").?;
+            const tmpl = comptime pek.parse(page);
+            try pek.compile(alloc, response.writer(), tmpl, .{
+                .clients = Self.clients,
+            });
+        }
+
+        pub fn callback(_: T.Ctx, response: *http.Response, request: http.Request, args: struct {}) !void {
+            _ = args;
+
+            const alloc = request.arena;
+            const query = try request.context.url.queryParameters(alloc);
+
+            const state = query.get("state") orelse return try fail(response, "", .{});
+            const client = clientByProviderId(Self.clients, state) orelse return try fail(response, "error: No handler found for provider: {s}\n", .{state});
+            const code = query.get("code") orelse return try fail(response, "", .{});
+
+            var params = UrlValues.init(alloc);
+            try params.add("client_id", client.id);
+            try params.add("client_secret", client.secret);
+            try params.add("grant_type", "authorization_code");
+            try params.add("code", code);
+            try params.add("redirect_uri", try redirectUri(alloc, request, callbackPath));
+            try params.add("state", "none");
+
+            const req = try zfetch.Request.init(alloc, client.provider.token_url, null);
+
+            var headers = zfetch.Headers.init(alloc);
+            try headers.appendValue("Content-Type", "application/x-www-form-urlencoded");
+            try headers.appendValue("Authorization", try std.fmt.allocPrint(alloc, "Basic {s}", .{try base64EncodeAlloc(alloc, try std.mem.join(alloc, ":", &.{ client.id, client.secret }))}));
+            try headers.appendValue("Accept", "application/json");
+
+            // TODO print error message to response if this fails
+            try req.do(.POST, headers, try params.encode());
+            const r = req.reader();
+            const body_content = try r.readAllAlloc(alloc, 1024 * 1024 * 5);
+            const val = try json.parse(alloc, body_content);
+
+            const at = val.get("access_token") orelse return try fail(response, "Identity Provider Login Error!\n{s}", .{body_content});
+
+            const req2 = try zfetch.Request.init(alloc, client.provider.me_url, null);
+            var headers2 = zfetch.Headers.init(alloc);
+            try headers2.appendValue("Authorization", try std.fmt.allocPrint(alloc, "Bearer {s}", .{at.String}));
+            try headers2.appendValue("Accept", "application/json");
+
+            // TODO print error message if this fails
+            try req2.do(.GET, headers2, null);
+            const r2 = req2.reader();
+            const body_content2 = try r2.readAllAlloc(alloc, 1024 * 1024 * 5);
+            const val2 = try json.parse(alloc, body_content2);
+
+            const id = try fixId(alloc, val2.get(client.provider.id_prop).?);
+            const name = val2.get(client.provider.name_prop).?.String;
+            try T.saveInfo(response, request, client.provider, id, name, val2);
+
+            try response.headers.put("Location", T.doneUrl);
+            try response.writeHeader(.found);
+        }
+    };
+}
+
+fn loginOne(response: *http.Response, request: http.Request, comptime T: type, client: Client, callbackPath: string) !void {
+    if (try T.isLoggedIn(request)) {
+        try response.headers.put("Location", T.doneUrl);
+    } else {
+        const alloc = request.arena;
+        const idp = client.provider;
+        var params = UrlValues.init(alloc);
+        try params.add("client_id", client.id);
+        try params.add("redirect_uri", try redirectUri(alloc, request, callbackPath));
+        try params.add("response_type", "code");
+        try params.add("scope", idp.scope);
+        try params.add("duration", "temporary");
+        try params.add("state", idp.id);
+        const authurl = try std.mem.join(alloc, "?", &.{ idp.authorize_url, try params.encode() });
+        try response.headers.put("Location", authurl);
+    }
+    try response.writeHeader(.found);
+}
+
+fn fail(response: *http.Response, comptime err: string, args: anytype) !void {
+    try response.writeHeader(.bad_request);
+    try response.writer().print(err, args);
+}
+
+fn redirectUri(alloc: *std.mem.Allocator, request: http.Request, callbackPath: string) !string {
+    return try std.fmt.allocPrint(alloc, "http://{s}{s}", .{ request.host().?, callbackPath });
+}
+
+fn fixId(alloc: *std.mem.Allocator, id: json.Value) !string {
+    return switch (id) {
+        .String => |v| return v,
+        .Int => |v| return try std.fmt.allocPrint(alloc, "{d}", .{v}),
+        .Float => |v| return try std.fmt.allocPrint(alloc, "{d}", .{v}),
+        else => unreachable,
+    };
+}
+
+fn base64EncodeAlloc(alloc: *std.mem.Allocator, input: string) !string {
+    const base64 = std.base64.standard_encoder;
+    var buf = try alloc.alloc(u8, base64.calcSize(input.len));
+    return base64.encode(buf, input);
+}
+
+//
+//
+
+// TODO make this its own library
+const UrlValues = struct {
+    inner: std.StringArrayHashMap(string),
+
+    pub fn init(alloc: *std.mem.Allocator) UrlValues {
+        return .{
+            .inner = std.StringArrayHashMap(string).init(alloc),
+        };
+    }
+
+    pub fn add(self: *UrlValues, key: string, value: string) !void {
+        try self.inner.putNoClobber(key, value);
+    }
+
+    pub fn encode(self: UrlValues) !string {
+        const alloc = self.inner.allocator;
+        var list = std.ArrayList(u8).init(alloc);
+        var iter = self.inner.iterator();
+        var i: usize = 0;
+        while (iter.next()) |entry| : (i += 1) {
+            if (i > 0) try list.writer().writeAll("&");
+            try list.writer().print("{s}={s}", .{ entry.key_ptr.*, uri.escapeString(alloc, entry.value_ptr.*) });
+        }
+        return list.toOwnedSlice();
+    }
+};

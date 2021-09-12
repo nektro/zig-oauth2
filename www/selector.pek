@@ -1,0 +1,43 @@
+html[lang="en"](
+    head(
+        title("Select An Identity Provider")
+        meta[charset="UTF-8"]
+        meta[http-equiv="X-UA-Compatible" content="IE=edge"]
+        meta[name="viewport" content="width=device-width,initial-scale=1"]
+        link[rel="icon" href="data:,"]
+        link[rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fomantic-ui/2.7.5/semantic.min.css" integrity="sha256-S4n5rcKkPwT9YZGXPue8OorJ7GCPxBA5o/Z0ALWXyHs=" crossorigin="anonymous"]
+        style("
+            body > div { margin: 1em; }
+            body { max-width: 75em; }
+            form .ui.button { margin: 1em 0; }
+            .prov { display: inline-flex; flex-direction: column-reverse; justify-content: center; align-items: center; margin: 1em; }
+            label { display: flex; flex-direction: column; }
+            object { display: block; }
+        ")
+    )
+    body(
+        div[class="ui main menu"](
+            div[class="right item"](
+                span("Powered by")
+                a[href="https://github.com/nektro/zig-oauth2"]("ZigOAuth2")
+            )
+        )
+        div(
+            form[action="login" method="get"](
+                fieldset(
+                    legend("Select a Provider:")
+                    {#each clients}
+                    div[class="prov"](
+                        input[type="radio" name="with" value=({this.provider.id}) id=("p-"{this.provider.id})]
+                        label[for=("p-"{this.provider.id})](
+                            object[type="image/svg+xml" height="48" data=({this.provider.logo})]
+                            div({this.provider.id})
+                        )
+                    )
+                    /each/
+                )
+                button[class="ui button" type="submit"]("Login")
+            )
+        )
+    )
+)
