@@ -22,10 +22,9 @@ pub const Client = struct {
     secret: string,
 };
 
-pub const providers = struct {
-    fn icon_url(comptime name: string) string {
-        return "https://unpkg.com/simple-icons@" ++ "5.13.0" ++ "/icons/" ++ name ++ ".svg";
-    }
+fn icon_url(comptime name: string) string {
+    return "https://unpkg.com/simple-icons@" ++ "5.13.0" ++ "/icons/" ++ name ++ ".svg";
+}
 
 pub const providers = struct {
     pub var amazon = Provider{
