@@ -157,3 +157,13 @@ pub const dynamic_providers = struct {
         .color = "#FBA457",
     };
 };
+
+pub fn providerById(name: string) ?Provider {
+    inline for (std.meta.declarations(providers)) |item| {
+        const p = @field(providers, item.name);
+        if (std.mem.eql(u8, p.id, name)) {
+            return p;
+        }
+    }
+    return null;
+}
