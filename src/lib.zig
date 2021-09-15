@@ -21,6 +21,15 @@ pub const Provider = struct {
     id_prop: string = "id",
     logo: string,
     color: string,
+
+    pub fn domain(self: Provider) string {
+        if (std.mem.indexOfScalar(u8, self.id, ',')) |_| {
+            var iter = std.mem.split(u8, self.id, ",");
+            _ = iter.next();
+            return iter.next().?;
+        }
+        return self.id;
+    }
 };
 
 pub const Client = struct {
