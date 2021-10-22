@@ -275,7 +275,7 @@ pub fn Handlers(comptime T: type) type {
 
             const id = try fixId(alloc, val2.get(client.provider.id_prop).?);
             const name = val2.get(client.provider.name_prop).?.String;
-            try T.saveInfo(response, request, client.provider, id, name, val2);
+            try T.saveInfo(response, request, client.provider, id, name, val, val2);
 
             try response.headers.put("Location", T.doneUrl);
             try response.writeHeader(.found);
