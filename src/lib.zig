@@ -222,7 +222,7 @@ pub fn Handlers(comptime T: type) type {
             }
 
             try response.headers.put("Content-Type", "text/html");
-            const page = comptime files.open("/selector.pek").?;
+            const page = files.@"/selector.pek";
             const tmpl = comptime pek.parse(page);
             try pek.compile(alloc, response.writer(), tmpl, .{
                 .clients = Self.clients,
