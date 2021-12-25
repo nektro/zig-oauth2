@@ -307,11 +307,11 @@ fn fail(response: *http.Response, comptime err: string, args: anytype) !void {
     try response.writer().print(err, args);
 }
 
-fn redirectUri(alloc: *std.mem.Allocator, request: http.Request, callbackPath: string) !string {
+fn redirectUri(alloc: std.mem.Allocator, request: http.Request, callbackPath: string) !string {
     return try std.fmt.allocPrint(alloc, "http://{s}{s}", .{ request.host().?, callbackPath });
 }
 
-fn fixId(alloc: *std.mem.Allocator, id: json.Value) !string {
+fn fixId(alloc: std.mem.Allocator, id: json.Value) !string {
     return switch (id) {
         .String => |v| return v,
         .Int => |v| return try std.fmt.allocPrint(alloc, "{d}", .{v}),
@@ -327,7 +327,7 @@ fn fixId(alloc: *std.mem.Allocator, id: json.Value) !string {
 const UrlValues = struct {
     inner: std.StringArrayHashMap(string),
 
-    pub fn init(alloc: *std.mem.Allocator) UrlValues {
+    pub fn init(alloc: std.mem.Allocator) UrlValues {
         return .{
             .inner = std.StringArrayHashMap(string).init(alloc),
         };
