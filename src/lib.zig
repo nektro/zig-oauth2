@@ -1,5 +1,5 @@
-// https://oauth.net/2/
-//
+//! https://oauth.net/2/
+
 const std = @import("std");
 const string = []const u8;
 const http = @import("apple_pie");
