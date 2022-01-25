@@ -130,20 +130,20 @@ pub const providers = struct {
 
 pub const dynamic_providers = struct {
     pub const _gitea = Provider{
-        .id = "_gitea",
-        .authorize_url = "https://{domain}/login/oauth/authorize",
-        .token_url = "https://{domain}/login/oauth/access_token",
-        .me_url = "https://{domain}/api/v1/user",
+        .id = "gitea",
+        .authorize_url = "https://{[domain]s}/login/oauth/authorize",
+        .token_url = "https://{[domain]s}/login/oauth/access_token",
+        .me_url = "https://{[domain]s}/api/v1/user",
         .name_prop = "username",
         .name_prefix = "@",
         .logo = icon_url("gitea"),
         .color = "#609926",
     };
     pub const _gitlab = Provider{
-        .id = "_gitlab",
-        .authorize_url = "https://{domain}/oauth/authorize",
-        .token_url = "https://{domain}/oauth/token",
-        .me_url = "https://{domain}/api/v4/user",
+        .id = "gitlab",
+        .authorize_url = "https://{[domain]s}/oauth/authorize",
+        .token_url = "https://{[domain]s}/oauth/token",
+        .me_url = "https://{[domain]s}/api/v4/user",
         .scope = "read_user",
         .name_prop = "username",
         .name_prefix = "@",
@@ -151,10 +151,10 @@ pub const dynamic_providers = struct {
         .color = "#FCA121",
     };
     pub const _mastodon = Provider{
-        .id = "_mastodon",
-        .authorize_url = "https://{domain}/oauth/authorize",
-        .token_url = "https://{domain}/oauth/token",
-        .me_url = "https://{domain}/api/v1/accounts/verify_credentials",
+        .id = "mastodon",
+        .authorize_url = "https://{[domain]s}/oauth/authorize",
+        .token_url = "https://{[domain]s}/oauth/token",
+        .me_url = "https://{[domain]s}/api/v1/accounts/verify_credentials",
         .scope = "read:accounts",
         .name_prop = "username",
         .name_prefix = "@",
@@ -162,10 +162,10 @@ pub const dynamic_providers = struct {
         .color = "#3088D4",
     };
     pub const _pleroma = Provider{
-        .id = "_pleroma",
-        .authorize_url = "https://{domain}/oauth/authorize",
-        .token_url = "https://{domain}/oauth/token",
-        .me_url = "https://{domain}/api/v1/accounts/verify_credentials",
+        .id = "pleroma",
+        .authorize_url = "https://{[domain]s}/oauth/authorize",
+        .token_url = "https://{[domain]s}/oauth/token",
+        .me_url = "https://{[domain]s}/api/v1/accounts/verify_credentials",
         .scope = "read:accounts",
         .name_prop = "username",
         .name_prefix = "@",
@@ -174,11 +174,32 @@ pub const dynamic_providers = struct {
     };
 };
 
-pub fn providerById(name: string) ?Provider {
+pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
     inline for (std.meta.declarations(providers)) |item| {
         const p = @field(providers, item.name);
         if (std.mem.eql(u8, p.id, name)) {
             return p;
+        }
+    }
+    const c_ind = std.mem.indexOfScalar(u8, name, ',') orelse return null;
+    const p_id = name[0..c_ind];
+    const domain = name[c_ind + 1 ..];
+    const args = .{ .domain = domain };
+    inline for (std.meta.declarations(dynamic_providers)) |item| {
+        const didp = @field(dynamic_providers, item.name);
+        if (std.mem.eql(u8, didp.id, p_id)) {
+            return Provider{
+                .id = name,
+                .authorize_url = try std.fmt.allocPrint(alloc, didp.authorize_url, args),
+                .token_url = try std.fmt.allocPrint(alloc, didp.token_url, args),
+                .me_url = try std.fmt.allocPrint(alloc, didp.me_url, args),
+                .scope = didp.scope,
+                .name_prop = didp.name_prop,
+                .name_prefix = didp.name_prefix,
+                .id_prop = didp.id_prop,
+                .logo = didp.logo,
+                .color = didp.color,
+            };
         }
     }
     return null;
