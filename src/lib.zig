@@ -9,6 +9,7 @@ const uri = @import("uri");
 const zfetch = @import("zfetch");
 const json = @import("json");
 const extras = @import("extras");
+const Base = @This();
 
 pub const Provider = struct {
     id: string,
@@ -245,7 +246,7 @@ pub fn Handlers(comptime T: type) type {
             try response.headers.put("Content-Type", "text/html");
             const page = files.@"/selector.pek";
             const tmpl = comptime pek.parse(page);
-            try pek.compile(alloc, response.writer(), tmpl, .{
+            try pek.compile(Base, alloc, response.writer(), tmpl, .{
                 .clients = Self.clients,
             });
         }
