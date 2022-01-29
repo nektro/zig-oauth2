@@ -9,7 +9,6 @@ dependencies:
   - src: git https://github.com/Luukdegram/apple_pie
   - src: git https://github.com/nektro/zig-pek
   - src: git https://github.com/MasterQ32/zig-uri
-  - src: git https://github.com/nektro/iguanaTLS # temporary
   - src: git https://github.com/truemedian/zfetch
   - src: git https://github.com/nektro/zig-json
   - src: git https://github.com/nektro/zig-extras
