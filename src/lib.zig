@@ -232,7 +232,7 @@ pub fn Handlers(comptime T: type) type {
             _ = args;
 
             const alloc = request.arena;
-            const query = try request.context.url.queryParameters(alloc);
+            const query = try request.context.uri.queryParameters(alloc);
 
             if (query.get("with")) |with| {
                 const client = clientByProviderId(Self.clients, with) orelse return try fail(response, "Client with that ID not found!\n", .{});
@@ -255,7 +255,7 @@ pub fn Handlers(comptime T: type) type {
             _ = args;
 
             const alloc = request.arena;
-            const query = try request.context.url.queryParameters(alloc);
+            const query = try request.context.uri.queryParameters(alloc);
 
             const state = query.get("state") orelse return try fail(response, "", .{});
             const client = clientByProviderId(Self.clients, state) orelse return try fail(response, "error: No handler found for provider: {s}\n", .{state});
