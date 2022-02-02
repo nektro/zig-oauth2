@@ -176,7 +176,7 @@ pub const dynamic_providers = struct {
 };
 
 pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
-    inline for (std.meta.declarations(providers)) |item| {
+    inline for (comptime std.meta.declarations(providers)) |item| {
         const p = @field(providers, item.name);
         if (std.mem.eql(u8, p.id, name)) {
             return p;
@@ -186,7 +186,7 @@ pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
     const p_id = name[0..c_ind];
     const domain = name[c_ind + 1 ..];
     const args = .{ .domain = domain };
-    inline for (std.meta.declarations(dynamic_providers)) |item| {
+    inline for (comptime std.meta.declarations(dynamic_providers)) |item| {
         const didp = @field(dynamic_providers, item.name);
         if (std.mem.eql(u8, didp.id, p_id)) {
             return Provider{
