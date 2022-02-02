@@ -330,7 +330,11 @@ fn fail(response: *http.Response, comptime err: string, args: anytype) !void {
 }
 
 fn redirectUri(alloc: std.mem.Allocator, request: http.Request, callbackPath: string) !string {
-    return try std.fmt.allocPrint(alloc, "http://{s}{s}", .{ request.host().?, callbackPath });
+    const headers = try request.headers(alloc);
+    const xproto = headers.get("X-Forwarded-Proto") orelse "";
+    const maybe_tls = std.mem.eql(u8, xproto, "https");
+    const proto: string = if (maybe_tls) "https" else "http";
+    return try std.fmt.allocPrint(alloc, "{s}://{s}{s}", .{ proto, request.host().?, callbackPath });
 }
 
 fn fixId(alloc: std.mem.Allocator, id: json.Value) !string {
