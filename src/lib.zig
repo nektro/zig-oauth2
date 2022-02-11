@@ -228,8 +228,8 @@ pub fn Handlers(comptime T: type) type {
         pub var clients: []Client = &.{};
         pub var callbackPath: string = "";
 
-        pub fn login(_: T.Ctx, response: *http.Response, request: http.Request, args: struct {}) !void {
-            _ = args;
+        pub fn login(_: T.Ctx, response: *http.Response, request: http.Request, captures: ?*const anyopaque) !void {
+            std.debug.assert(captures == null);
 
             const alloc = request.arena;
             const query = try request.context.uri.queryParameters(alloc);
@@ -251,8 +251,8 @@ pub fn Handlers(comptime T: type) type {
             });
         }
 
-        pub fn callback(_: T.Ctx, response: *http.Response, request: http.Request, args: struct {}) !void {
-            _ = args;
+        pub fn callback(_: T.Ctx, response: *http.Response, request: http.Request, captures: ?*const anyopaque) !void {
+            std.debug.assert(captures == null);
 
             const alloc = request.arena;
             const query = try request.context.uri.queryParameters(alloc);
