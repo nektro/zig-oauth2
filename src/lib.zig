@@ -375,7 +375,7 @@ const UrlValues = struct {
         var i: usize = 0;
         while (iter.next()) |entry| : (i += 1) {
             if (i > 0) try list.writer().writeAll("&");
-            try list.writer().print("{s}={s}", .{ entry.key_ptr.*, uri.escapeString(alloc, entry.value_ptr.*) });
+            try list.writer().print("{s}={s}", .{ entry.key_ptr.*, try uri.escapeString(alloc, entry.value_ptr.*) });
         }
         return list.toOwnedSlice();
     }
