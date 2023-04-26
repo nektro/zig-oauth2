@@ -5,10 +5,10 @@ const string = []const u8;
 const http = @import("apple_pie");
 const files = @import("self/files");
 const pek = @import("pek");
-const uri = @import("uri");
 const zfetch = @import("zfetch");
 const json = @import("json");
 const extras = @import("extras");
+const UrlValues = @import("UrlValues");
 const Base = @This();
 
 pub const Provider = struct {
@@ -350,33 +350,3 @@ pub fn pek_domain(alloc: std.mem.Allocator, writer: std.ArrayList(u8).Writer, p:
     _ = alloc;
     try writer.writeAll(p.domain());
 }
-
-//
-//
-
-// TODO make this its own library
-const UrlValues = struct {
-    inner: std.StringArrayHashMap(string),
-
-    pub fn init(alloc: std.mem.Allocator) UrlValues {
-        return .{
-            .inner = std.StringArrayHashMap(string).init(alloc),
-        };
-    }
-
-    pub fn add(self: *UrlValues, key: string, value: string) !void {
-        try self.inner.putNoClobber(key, value);
-    }
-
-    pub fn encode(self: UrlValues) !string {
-        const alloc = self.inner.allocator;
-        var list = std.ArrayList(u8).init(alloc);
-        var iter = self.inner.iterator();
-        var i: usize = 0;
-        while (iter.next()) |entry| : (i += 1) {
-            if (i > 0) try list.writer().writeAll("&");
-            try list.writer().print("{s}={s}", .{ entry.key_ptr.*, try uri.escapeString(alloc, entry.value_ptr.*) });
-        }
-        return list.toOwnedSlice();
-    }
-};
