@@ -6,7 +6,6 @@ const http = @import("apple_pie");
 const files = @import("self/files");
 const pek = @import("pek");
 const zfetch = @import("zfetch");
-const json = @import("json");
 const extras = @import("extras");
 const UrlValues = @import("UrlValues");
 const Base = @This();
@@ -280,24 +279,24 @@ pub fn Handlers(comptime T: type) type {
             try req.do(.POST, headers, try params.encode());
             const r = req.reader();
             const body_content = try r.readAllAlloc(alloc, 1024 * 1024 * 5);
-            const val = try json.parse(alloc, body_content);
+            const val = try extras.parse_json(alloc, body_content);
 
-            const at = val.get("access_token") orelse return try fail(response, "Identity Provider Login Error!\n{s}", .{body_content});
+            const at = val.root.object.get("access_token") orelse return try fail(response, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
 
             const req2 = try zfetch.Request.init(alloc, client.provider.me_url, null);
             var headers2 = zfetch.Headers.init(alloc);
-            try headers2.appendValue("Authorization", try std.fmt.allocPrint(alloc, "Bearer {s}", .{at.String}));
+            try headers2.appendValue("Authorization", try std.fmt.allocPrint(alloc, "Bearer {s}", .{at.string}));
             try headers2.appendValue("Accept", "application/json");
 
             // TODO print error message if this fails
             try req2.do(.GET, headers2, null);
             const r2 = req2.reader();
             const body_content2 = try r2.readAllAlloc(alloc, 1024 * 1024 * 5);
-            const val2 = try json.parse(alloc, body_content2);
+            const val2 = try extras.parse_json(alloc, body_content2);
 
-            const id = try fixId(alloc, val2.get(client.provider.id_prop).?);
-            const name = val2.get(client.provider.name_prop).?.String;
-            try T.saveInfo(response, request, client.provider, id, name, val, val2);
+            const id = try fixId(alloc, val2.root.object.get(client.provider.id_prop).?);
+            const name = val2.root.object.get(client.provider.name_prop).?.string;
+            try T.saveInfo(response, alloc, client.provider, id, name, val.root, val2.root);
 
             try response.headers.put("Location", T.doneUrl);
             try response.writeHeader(.found);
