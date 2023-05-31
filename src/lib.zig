@@ -2,7 +2,6 @@
 
 const std = @import("std");
 const string = []const u8;
-const http = @import("apple_pie");
 const files = @import("self/files");
 const pek = @import("pek");
 const zfetch = @import("zfetch");
@@ -214,35 +213,28 @@ pub fn clientByProviderId(clients: []const Client, name: string) ?Client {
     return null;
 }
 
-pub const IsLoggedInFn = fn (http.Request) anyerror!bool;
+pub const IsLoggedInFn = fn (*std.http.Server.Response) anyerror!bool;
 
 pub fn Handlers(comptime T: type) type {
-    comptime std.debug.assert(@hasDecl(T, "Ctx"));
     comptime std.debug.assert(@hasDecl(T, "isLoggedIn"));
     comptime std.debug.assert(@hasDecl(T, "doneUrl"));
     comptime std.debug.assert(@hasDecl(T, "saveInfo"));
+    comptime std.debug.assert(@hasDecl(T, "callbackPath"));
 
     return struct {
         const Self = @This();
         pub var clients: []Client = &.{};
-        pub var callbackPath: string = "";
 
-        pub fn login(_: T.Ctx, response: *http.Response, request: http.Request, captures: ?*const anyopaque) !void {
-            std.debug.assert(captures == null);
-
-            const alloc = request.arena;
-            const query = try request.context.uri.queryParameters(alloc);
-
+        pub fn login(response: *std.http.Server.Response, body_writer: anytype, alloc: std.mem.Allocator, query: UrlValues) !void {
             if (query.get("with")) |with| {
-                const client = clientByProviderId(Self.clients, with) orelse return try fail(response, "Client with that ID not found!\n", .{});
-                return try loginOne(response, request, T, client, Self.callbackPath);
+                const client = clientByProviderId(Self.clients, with) orelse return try fail(response, body_writer, "Client with that ID not found!\n", .{});
+                return try loginOne(response, alloc, T, client, T.callbackPath);
             }
-
             if (Self.clients.len == 1) {
-                return try loginOne(response, request, T, clients[0], Self.callbackPath);
+                return try loginOne(response, alloc, T, clients[0], T.callbackPath);
             }
 
-            try response.headers.put("Content-Type", "text/html");
+            try response.headers.append("Content-Type", "text/html");
             const page = files.@"/selector.pek";
             const tmpl = comptime pek.parse(page);
             try pek.compile(Base, alloc, response.writer(), tmpl, .{
@@ -250,22 +242,17 @@ pub fn Handlers(comptime T: type) type {
             });
         }
 
-        pub fn callback(_: T.Ctx, response: *http.Response, request: http.Request, captures: ?*const anyopaque) !void {
-            std.debug.assert(captures == null);
-
-            const alloc = request.arena;
-            const query = try request.context.uri.queryParameters(alloc);
-
-            const state = query.get("state") orelse return try fail(response, "", .{});
-            const client = clientByProviderId(Self.clients, state) orelse return try fail(response, "error: No handler found for provider: {s}\n", .{state});
-            const code = query.get("code") orelse return try fail(response, "", .{});
+        pub fn callback(response: *std.http.Server.Response, body_writer: anytype, alloc: std.mem.Allocator, query: UrlValues) !void {
+            const state = query.get("state") orelse return try fail(response, body_writer, "", .{});
+            const client = clientByProviderId(Self.clients, state) orelse return try fail(response, body_writer, "error: No handler found for provider: {s}\n", .{state});
+            const code = query.get("code") orelse return try fail(response, body_writer, "", .{});
 
             var params = UrlValues.init(alloc);
             try params.add("client_id", client.id);
             try params.add("client_secret", client.secret);
             try params.add("grant_type", "authorization_code");
             try params.add("code", code);
-            try params.add("redirect_uri", try redirectUri(alloc, request, callbackPath));
+            try params.add("redirect_uri", try redirectUri(response, alloc, T.callbackPath));
             try params.add("state", "none");
 
             const req = try zfetch.Request.init(alloc, client.provider.token_url, null);
@@ -298,49 +285,49 @@ pub fn Handlers(comptime T: type) type {
             const name = val2.root.object.get(client.provider.name_prop).?.string;
             try T.saveInfo(response, alloc, client.provider, id, name, val.root, val2.root);
 
-            try response.headers.put("Location", T.doneUrl);
-            try response.writeHeader(.found);
+            try response.headers.append("Location", T.doneUrl);
+            response.status = .found;
         }
     };
 }
 
-fn loginOne(response: *http.Response, request: http.Request, comptime T: type, client: Client, callbackPath: string) !void {
-    if (try T.isLoggedIn(request)) {
-        try response.headers.put("Location", T.doneUrl);
+fn loginOne(response: *std.http.Server.Response, alloc: std.mem.Allocator, comptime T: type, client: Client, callbackPath: string) !void {
+    if (try T.isLoggedIn(response, alloc)) {
+        try response.headers.append("Location", T.doneUrl);
     } else {
-        const alloc = request.arena;
         const idp = client.provider;
         var params = UrlValues.init(alloc);
         try params.add("client_id", client.id);
-        try params.add("redirect_uri", try redirectUri(alloc, request, callbackPath));
+        try params.add("redirect_uri", try redirectUri(response, alloc, callbackPath));
         try params.add("response_type", "code");
         try params.add("scope", idp.scope);
         try params.add("duration", "temporary");
         try params.add("state", idp.id);
         const authurl = try std.mem.join(alloc, "?", &.{ idp.authorize_url, try params.encode() });
-        try response.headers.put("Location", authurl);
+        try response.headers.append("Location", authurl);
     }
-    try response.writeHeader(.found);
+    response.status = .found;
 }
 
-fn fail(response: *http.Response, comptime err: string, args: anytype) !void {
-    try response.writeHeader(.bad_request);
-    try response.writer().print(err, args);
+fn fail(response: *std.http.Server.Response, body_writer: anytype, comptime err: string, args: anytype) !void {
+    response.status = .bad_request;
+    try body_writer.print(err, args);
 }
 
-fn redirectUri(alloc: std.mem.Allocator, request: http.Request, callbackPath: string) !string {
-    const headers = try request.headers(alloc);
-    const xproto = headers.get("X-Forwarded-Proto") orelse "";
+fn redirectUri(response: *std.http.Server.Response, alloc: std.mem.Allocator, callbackPath: string) !string {
+    const headers = response.request.headers;
+    const xproto = headers.getFirstValue("X-Forwarded-Proto") orelse "";
     const maybe_tls = std.mem.eql(u8, xproto, "https");
     const proto: string = if (maybe_tls) "https" else "http";
-    return try std.fmt.allocPrint(alloc, "{s}://{s}{s}", .{ proto, request.host().?, callbackPath });
+    const host = response.request.headers.getFirstValue("host").?;
+    return try std.fmt.allocPrint(alloc, "{s}://{s}{s}", .{ proto, host, callbackPath });
 }
 
-fn fixId(alloc: std.mem.Allocator, id: json.Value) !string {
+fn fixId(alloc: std.mem.Allocator, id: std.json.Value) !string {
     return switch (id) {
-        .String => |v| return v,
-        .Int => |v| return try std.fmt.allocPrint(alloc, "{d}", .{v}),
-        .Float => |v| return try std.fmt.allocPrint(alloc, "{d}", .{v}),
+        .string => |v| v,
+        .integer => |v| try std.fmt.allocPrint(alloc, "{d}", .{v}),
+        .float => |v| try std.fmt.allocPrint(alloc, "{d}", .{v}),
         else => unreachable,
     };
 }

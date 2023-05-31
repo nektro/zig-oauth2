@@ -6,7 +6,6 @@ description: HTTP handler functions to allow you to easily add OAuth2 login supp
 files:
   - www
 dependencies:
-  - src: git https://github.com/Luukdegram/apple_pie
   - src: git https://github.com/nektro/zig-pek
   - src: git https://github.com/truemedian/zfetch
   - src: git https://github.com/nektro/zig-extras
