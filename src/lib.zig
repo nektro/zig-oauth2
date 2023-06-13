@@ -237,7 +237,7 @@ pub fn Handlers(comptime T: type) type {
             try response.headers.append("Content-Type", "text/html");
             const page = files.@"/selector.pek";
             const tmpl = comptime pek.parse(page);
-            try pek.compile(Base, alloc, response.writer(), tmpl, .{
+            try pek.compile(Base, alloc, body_writer, tmpl, .{
                 .clients = Self.clients,
             });
         }
