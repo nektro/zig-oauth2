@@ -23,7 +23,7 @@ pub const Provider = struct {
 
     pub fn domain(self: Provider) string {
         if (std.mem.indexOfScalar(u8, self.id, ',')) |_| {
-            var iter = std.mem.split(u8, self.id, ",");
+            var iter = std.mem.splitScalar(u8, self.id, ',');
             _ = iter.next();
             return iter.next().?;
         }
