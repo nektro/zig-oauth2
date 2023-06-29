@@ -262,10 +262,11 @@ pub fn Handlers(comptime T: type) type {
             try headers.appendValue("Authorization", try std.fmt.allocPrint(alloc, "Basic {s}", .{try extras.base64EncodeAlloc(alloc, try std.mem.join(alloc, ":", &.{ client.id, client.secret }))}));
             try headers.appendValue("Accept", "application/json");
 
-            // TODO print error message to response if this fails
             try req.do(.POST, headers, try params.encode());
             const r = req.reader();
             const body_content = try r.readAllAlloc(alloc, 1024 * 1024 * 5);
+            if (req.status != .ok) std.log.scoped(.oauth).debug("{s}", .{body_content});
+            if (req.status != .ok) return error.OauthBadToken;
             const val = try extras.parse_json(alloc, body_content);
 
             const at = val.root.object.get("access_token") orelse return try fail(response, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
@@ -275,10 +276,11 @@ pub fn Handlers(comptime T: type) type {
             try headers2.appendValue("Authorization", try std.fmt.allocPrint(alloc, "Bearer {s}", .{at.string}));
             try headers2.appendValue("Accept", "application/json");
 
-            // TODO print error message if this fails
             try req2.do(.GET, headers2, null);
             const r2 = req2.reader();
             const body_content2 = try r2.readAllAlloc(alloc, 1024 * 1024 * 5);
+            if (req2.status != .ok) std.log.scoped(.oauth).debug("{s}", .{body_content2});
+            if (req2.status != .ok) return error.OauthBadUserinfo;
             const val2 = try extras.parse_json(alloc, body_content2);
 
             const id = try fixId(alloc, val2.root.object.get(client.provider.id_prop).?);
