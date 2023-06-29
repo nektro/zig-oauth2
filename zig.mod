@@ -7,6 +7,6 @@ files:
   - www
 dependencies:
   - src: git https://github.com/nektro/zig-pek
-  - src: git https://github.com/truemedian/zfetch
+  - src: git https://github.com/nektro/zfetch
   - src: git https://github.com/nektro/zig-extras
   - src: git https://github.com/nektro/zig-UrlValues
