@@ -21,6 +21,14 @@ pub const Provider = struct {
     logo: string,
     color: string,
 
+    pub fn real_id(self: Provider) string {
+        if (std.mem.indexOfScalar(u8, self.id, ',')) |_| {
+            var iter = std.mem.splitScalar(u8, self.id, ',');
+            return iter.next().?;
+        }
+        return self.id;
+    }
+
     pub fn domain(self: Provider) string {
         if (std.mem.indexOfScalar(u8, self.id, ',')) |_| {
             var iter = std.mem.splitScalar(u8, self.id, ',');
