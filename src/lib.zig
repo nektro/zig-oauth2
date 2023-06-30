@@ -273,7 +273,7 @@ pub fn Handlers(comptime T: type) type {
             try req.do(.POST, headers, try params.encode());
             const r = req.reader();
             const body_content = try r.readAllAlloc(alloc, 1024 * 1024 * 5);
-            if (req.status != .ok) std.log.scoped(.oauth).debug("{s}", .{body_content});
+            if (req.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(req.status), body_content });
             if (req.status != .ok) return error.OauthBadToken;
             const val = try extras.parse_json(alloc, body_content);
 
@@ -287,7 +287,7 @@ pub fn Handlers(comptime T: type) type {
             try req2.do(.GET, headers2, null);
             const r2 = req2.reader();
             const body_content2 = try r2.readAllAlloc(alloc, 1024 * 1024 * 5);
-            if (req2.status != .ok) std.log.scoped(.oauth).debug("{s}", .{body_content2});
+            if (req2.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(req2.status), body_content2 });
             if (req2.status != .ok) return error.OauthBadUserinfo;
             const val2 = try extras.parse_json(alloc, body_content2);
 
