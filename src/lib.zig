@@ -277,6 +277,9 @@ pub fn Handlers(comptime T: type) type {
             if (req.status != .ok) return error.OauthBadToken;
             const val = try extras.parse_json(alloc, body_content);
 
+            const tt = val.root.object.get("token_type").?.string;
+            if (!std.mem.eql(u8, tt, "bearer")) return fail(response, body_writer, "oauth2: invalid token type: {s}", .{tt});
+
             const at = val.root.object.get("access_token") orelse return try fail(response, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
 
             const req2 = try zfetch.Request.init(alloc, client.provider.me_url, null);
