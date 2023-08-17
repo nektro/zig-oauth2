@@ -277,10 +277,10 @@ pub fn Handlers(comptime T: type) type {
             if (req.status != .ok) return error.OauthBadToken;
             const val = try extras.parse_json(alloc, body_content);
 
-            const tt = val.root.object.get("token_type").?.string;
+            const tt = val.value.object.get("token_type").?.string;
             if (!std.mem.eql(u8, tt, "bearer")) return fail(response, body_writer, "oauth2: invalid token type: {s}", .{tt});
 
-            const at = val.root.object.get("access_token") orelse return try fail(response, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
+            const at = val.value.object.get("access_token") orelse return try fail(response, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
 
             const req2 = try zfetch.Request.init(alloc, client.provider.me_url, null);
             var headers2 = zfetch.Headers.init(alloc);
@@ -294,9 +294,9 @@ pub fn Handlers(comptime T: type) type {
             if (req2.status != .ok) return error.OauthBadUserinfo;
             const val2 = try extras.parse_json(alloc, body_content2);
 
-            const id = try fixId(alloc, val2.root.object.get(client.provider.id_prop).?);
-            const name = val2.root.object.get(client.provider.name_prop).?.string;
-            try T.saveInfo(response, alloc, client.provider, id, name, val.root, val2.root);
+            const id = try fixId(alloc, val2.value.object.get(client.provider.id_prop).?);
+            const name = val2.value.object.get(client.provider.name_prop).?.string;
+            try T.saveInfo(response, alloc, client.provider, id, name, val.value, val2.value);
 
             try response.headers.append("Location", T.doneUrl);
             response.status = .found;
