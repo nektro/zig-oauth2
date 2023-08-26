@@ -2,7 +2,7 @@
 
 const std = @import("std");
 const string = []const u8;
-const files = @import("self/files");
+const files = @import("./files.zig");
 const pek = @import("pek");
 const zfetch = @import("zfetch");
 const extras = @import("extras");
