@@ -188,12 +188,33 @@ pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
             return p;
         }
     }
+    inline for (comptime std.meta.globalOption("oauth2_providers", []const Provider) orelse &.{}) |p| {
+        if (std.mem.eql(u8, p.id, name)) {
+            return p;
+        }
+    }
     const c_ind = std.mem.indexOfScalar(u8, name, ',') orelse return null;
     const p_id = name[0..c_ind];
     const domain = name[c_ind + 1 ..];
     const args = .{ .domain = domain };
     inline for (comptime std.meta.declarations(dynamic_providers)) |item| {
         const didp = @field(dynamic_providers, item.name);
+        if (std.mem.eql(u8, didp.id, p_id)) {
+            return Provider{
+                .id = name,
+                .authorize_url = try std.fmt.allocPrint(alloc, didp.authorize_url, args),
+                .token_url = try std.fmt.allocPrint(alloc, didp.token_url, args),
+                .me_url = try std.fmt.allocPrint(alloc, didp.me_url, args),
+                .scope = didp.scope,
+                .name_prop = didp.name_prop,
+                .name_prefix = didp.name_prefix,
+                .id_prop = didp.id_prop,
+                .logo = didp.logo,
+                .color = didp.color,
+            };
+        }
+    }
+    inline for (comptime std.meta.globalOption("oauth2_dynamic_providers", []const Provider) orelse &.{}) |didp| {
         if (std.mem.eql(u8, didp.id, p_id)) {
             return Provider{
                 .id = name,
