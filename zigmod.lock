@@ -1,9 +1,0 @@
-2
-git https://github.com/kivikakk/htmlentities.zig commit-b85de86198a34da5a5d9c07cb8489fbebd06023e
-git https://github.com/nektro/iguanaTLS commit-f5c7c3fe880c5a23fbcdc21dfcb83c2776931f40
-git https://github.com/nektro/zfetch commit-fc0874c50237656020937622ea7c15df9356de12
-git https://github.com/nektro/zig-UrlValues commit-395ae25c1228f07bfd61259ef36ebdc085df761c
-git https://github.com/nektro/zig-extras commit-05f0e90a185cb04a09b96f686dffc6375c420e9b
-git https://github.com/nektro/zig-pek commit-3ba77713aba930dca5b08532d1a41e52ddb6f5d7
-git https://github.com/nektro/zig-tracer commit-5c4151729c6dfc30fc9ec69f60482d43a8820189
-git https://github.com/truemedian/hzzp commit-92e6072d8a385d8b08fdcae3ae2021fe5293528f
