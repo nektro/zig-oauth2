@@ -1,13 +1,13 @@
 const std = @import("std");
 const deps = @import("./deps.zig");
 
-pub fn build(b: *std.build.Builder) void {
+pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const mode = b.option(std.builtin.Mode, "mode", "") orelse .Debug;
 
     const exe = b.addExecutable(.{
         .name = "zig-oauth2",
-        .root_source_file = .{ .path = "./main.zig" },
+        .root_source_file = b.path("main.zig"),
         .target = target,
         .optimize = mode,
     });
