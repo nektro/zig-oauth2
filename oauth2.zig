@@ -188,7 +188,7 @@ pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
             return p;
         }
     }
-    inline for (comptime std.meta.globalOption("oauth2_providers", []const Provider) orelse &.{}) |p| {
+    inline for (comptime extras.globalOption("oauth2_providers", []const Provider) orelse &.{}) |p| {
         if (std.mem.eql(u8, p.id, name)) {
             return p;
         }
@@ -214,7 +214,7 @@ pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
             };
         }
     }
-    inline for (comptime std.meta.globalOption("oauth2_dynamic_providers", []const Provider) orelse &.{}) |didp| {
+    inline for (comptime extras.globalOption("oauth2_dynamic_providers", []const Provider) orelse &.{}) |didp| {
         if (std.mem.eql(u8, didp.id, p_id)) {
             return Provider{
                 .id = name,
