@@ -6,7 +6,7 @@ const files = @import("./files.zig");
 const pek = @import("pek");
 const zfetch = @import("zfetch");
 const extras = @import("extras");
-const UrlValues = @import("UrlValues");
+const url = @import("url");
 const Base = @This();
 
 pub const Provider = struct {
@@ -254,7 +254,7 @@ pub fn Handlers(comptime T: type) type {
         const Self = @This();
         pub var clients: []Client = &.{};
 
-        pub fn login(request: *std.http.Server.Request, body_writer: anytype, alloc: std.mem.Allocator, query: UrlValues, request_headers: *const std.StringHashMapUnmanaged(string), response_status: *std.http.Status, response_headers: *std.ArrayListUnmanaged(std.http.Header)) !void {
+        pub fn login(request: *std.http.Server.Request, body_writer: anytype, alloc: std.mem.Allocator, query: url.SearchParams, request_headers: *const std.StringHashMapUnmanaged(string), response_status: *std.http.Status, response_headers: *std.ArrayListUnmanaged(std.http.Header)) !void {
             if (query.get("with")) |with| {
                 const client = clientByProviderId(Self.clients, with) orelse return try fail(response_status, body_writer, "Client with that ID not found!\n", .{});
                 return try loginOne(request, alloc, T, client, T.callbackPath, request_headers, response_status, response_headers);
@@ -271,13 +271,13 @@ pub fn Handlers(comptime T: type) type {
             });
         }
 
-        pub fn callback(request: *std.http.Server.Request, body_writer: anytype, alloc: std.mem.Allocator, query: UrlValues, request_headers: *const std.StringHashMapUnmanaged(string), response_status: *std.http.Status, response_headers: *std.ArrayListUnmanaged(std.http.Header)) !void {
+        pub fn callback(request: *std.http.Server.Request, body_writer: anytype, alloc: std.mem.Allocator, query: url.SearchParams, request_headers: *const std.StringHashMapUnmanaged(string), response_status: *std.http.Status, response_headers: *std.ArrayListUnmanaged(std.http.Header)) !void {
             _ = request;
             const state = query.get("state") orelse return try fail(response_status, body_writer, "", .{});
             const client = clientByProviderId(Self.clients, state) orelse return try fail(response_status, body_writer, "error: No handler found for provider: {s}\n", .{state});
             const code = query.get("code") orelse return try fail(response_status, body_writer, "", .{});
 
-            var params = UrlValues.init(alloc);
+            var params = url.SearchParams.init(alloc);
             try params.append("client_id", client.id);
             try params.append("client_secret", client.secret);
             try params.append("grant_type", "authorization_code");
@@ -331,7 +331,7 @@ fn loginOne(request: *std.http.Server.Request, alloc: std.mem.Allocator, comptim
         try response_headers.append(alloc, .{ .name = "Location", .value = T.doneUrl });
     } else {
         const idp = client.provider;
-        var params = UrlValues.init(alloc);
+        var params = url.SearchParams.init(alloc);
         try params.append("client_id", client.id);
         try params.append("redirect_uri", try redirectUri(request_headers, alloc, callbackPath));
         try params.append("response_type", "code");
