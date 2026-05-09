@@ -18,6 +18,7 @@ HTTP handler functions to allow you to easily add OAuth2 login support to your Z
 - Google
 - Microsoft
 - Reddit
+- Railway
 - Gitea
 - Forgejo
 - GitLab

@@ -134,6 +134,17 @@ pub const providers = struct {
         .logo = icon_url("reddit"),
         .color = "#FF4500",
     };
+    pub var railway = Provider{
+        .id = "railway",
+        .authorize_url = "https://backboard.railway.com/oauth/auth",
+        .token_url = "https://backboard.railway.com/oauth/token",
+        .me_url = "https://backboard.railway.com/oauth/me",
+        .scope = "openid+profile",
+        .name_prop = "name",
+        .name_prefix = "",
+        .logo = icon_url("railway"),
+        .color = "#0B0D0E",
+    };
 };
 
 pub const dynamic_providers = struct {
