@@ -147,6 +147,16 @@ pub const dynamic_providers = struct {
         .logo = icon_url("gitea"),
         .color = "#609926",
     };
+    pub const _forgejo = Provider{
+        .id = "forgejo",
+        .authorize_url = "https://{[domain]s}/login/oauth/authorize",
+        .token_url = "https://{[domain]s}/login/oauth/access_token",
+        .me_url = "https://{[domain]s}/api/v1/user",
+        .name_prop = "username",
+        .name_prefix = "@",
+        .logo = icon_url("forgejo"),
+        .color = "#FB923C",
+    };
     pub const _gitlab = Provider{
         .id = "gitlab",
         .authorize_url = "https://{[domain]s}/oauth/authorize",

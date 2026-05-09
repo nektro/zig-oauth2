@@ -19,6 +19,7 @@ HTTP handler functions to allow you to easily add OAuth2 login support to your Z
 - Microsoft
 - Reddit
 - Gitea
+- Forgejo
 - GitLab
 - Mastodon
 - Pleroma
