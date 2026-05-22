@@ -388,7 +388,7 @@ fn fixId(alloc: std.mem.Allocator, id: std.json.Value) !string {
     };
 }
 
-pub fn pek_domain(alloc: std.mem.Allocator, writer: std.ArrayList(u8).Writer, p: Provider) !void {
+pub fn pek_domain(alloc: std.mem.Allocator, writer: pek.Writer, p: Provider) !void {
     _ = alloc;
     try writer.writeAll(p.domain());
 }
