@@ -7,7 +7,6 @@ files:
   - www
 dependencies:
   - src: git https://github.com/nektro/zig-pek
-  - src: git https://github.com/nektro/zfetch
   - src: git https://github.com/nektro/zig-extras
   - src: git https://github.com/nektro/zig-whatwg-url
   - src: git https://github.com/nektro/zig-net-http

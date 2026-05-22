@@ -4,7 +4,6 @@ const std = @import("std");
 const string = []const u8;
 const files = @import("./files.zig");
 const pek = @import("pek");
-const zfetch = @import("zfetch");
 const extras = @import("extras");
 const url = @import("url");
 const http = @import("http");
@@ -299,6 +298,10 @@ pub fn Handlers(comptime T: type) type {
             const client = clientByProviderId(Self.clients, state) orelse return try fail(response_status, body_writer, "error: No handler found for provider: {s}\n", .{state});
             const code = query.get("code") orelse return try fail(response_status, body_writer, "", .{});
 
+            var buf: [4096]u8 = @splat(0);
+            var http_client: std.http.Client = .{ .allocator = alloc };
+            defer http_client.deinit();
+
             var params = url.SearchParams.init(alloc);
             try params.append("client_id", client.id);
             try params.append("client_secret", client.secret);
@@ -306,19 +309,28 @@ pub fn Handlers(comptime T: type) type {
             try params.append("code", code);
             try params.append("redirect_uri", try redirectUri(request_headers, alloc, T.callbackPath));
             try params.append("state", "none");
+            const req_body = try params.encode();
 
-            const req = try zfetch.Request.init(alloc, client.provider.token_url, null);
-
-            var headers = zfetch.Headers.init(alloc);
-            try headers.appendValue("Content-Type", "application/x-www-form-urlencoded");
-            try headers.appendValue("Authorization", try std.fmt.allocPrint(alloc, "Basic {s}", .{try extras.base64EncodeAlloc(alloc, try std.mem.join(alloc, ":", &.{ client.id, client.secret }))}));
-            try headers.appendValue("Accept", "application/json");
-
-            try req.do(.POST, headers, try params.encode());
-            const r = req.reader();
-            const body_content = try r.readAllAlloc(alloc, 1024 * 1024 * 5);
-            if (req.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(req.status), body_content });
-            if (req.status != .ok) return error.OauthBadToken;
+            var req = try http_client.open(.POST, try std.Uri.parse(client.provider.token_url), .{
+                .server_header_buffer = &buf,
+                .headers = .{
+                    .authorization = .{ .override = try std.fmt.allocPrint(alloc, "Basic {s}", .{try extras.base64EncodeAlloc(alloc, try std.mem.join(alloc, ":", &.{ client.id, client.secret }))}) },
+                    .content_type = .{ .override = "application/x-www-form-urlencoded" },
+                },
+                .extra_headers = &.{
+                    .{ .name = "Accept", .value = "application/json" },
+                },
+                .redirect_behavior = .not_allowed,
+            });
+            defer req.deinit();
+            req.transfer_encoding = .{ .content_length = req_body.len };
+            try req.send();
+            try req.writer().writeAll(req_body);
+            try req.finish();
+            try req.wait();
+            const body_content = try req.reader().readAllAlloc(alloc, 1024 * 1024 * 5);
+            if (req.response.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(req.response.status), body_content });
+            if (req.response.status != .ok) return error.OauthBadToken;
             const val = try extras.parse_json(alloc, body_content);
 
             const tt = val.value.object.get("token_type").?.string;
@@ -326,16 +338,23 @@ pub fn Handlers(comptime T: type) type {
 
             const at = val.value.object.get("access_token") orelse return try fail(response_status, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
 
-            const req2 = try zfetch.Request.init(alloc, client.provider.me_url, null);
-            var headers2 = zfetch.Headers.init(alloc);
-            try headers2.appendValue("Authorization", try std.fmt.allocPrint(alloc, "Bearer {s}", .{at.string}));
-            try headers2.appendValue("Accept", "application/json");
-
-            try req2.do(.GET, headers2, null);
-            const r2 = req2.reader();
-            const body_content2 = try r2.readAllAlloc(alloc, 1024 * 1024 * 5);
-            if (req2.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(req2.status), body_content2 });
-            if (req2.status != .ok) return error.OauthBadUserinfo;
+            var req2 = try http_client.open(.GET, try std.Uri.parse(client.provider.me_url), .{
+                .server_header_buffer = &buf,
+                .headers = .{
+                    .authorization = .{ .override = try std.fmt.allocPrint(alloc, "Bearer {s}", .{at.string}) },
+                },
+                .extra_headers = &.{
+                    .{ .name = "Accept", .value = "application/json" },
+                },
+                .redirect_behavior = .not_allowed,
+            });
+            defer req2.deinit();
+            try req2.send();
+            try req2.finish();
+            try req2.wait();
+            const body_content2 = try req2.reader().readAllAlloc(alloc, 1024 * 1024 * 5);
+            if (req2.response.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(req2.response.status), body_content2 });
+            if (req2.response.status != .ok) return error.OauthBadUserinfo;
             const val2 = try extras.parse_json(alloc, body_content2);
 
             const id = try fixId(alloc, val2.value.object.get(client.provider.id_prop).?);
