@@ -10,3 +10,4 @@ dependencies:
   - src: git https://github.com/nektro/zig-extras
   - src: git https://github.com/nektro/zig-whatwg-url
   - src: git https://github.com/nektro/zig-net-http
+  - src: git https://github.com/nektro/zig-nio

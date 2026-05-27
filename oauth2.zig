@@ -7,6 +7,7 @@ const pek = @import("pek");
 const extras = @import("extras");
 const url = @import("url");
 const http = @import("http");
+const nio = @import("nio");
 const Base = @This();
 
 pub const Provider = struct {
@@ -223,9 +224,9 @@ pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
         if (std.mem.eql(u8, didp.id, p_id)) {
             return Provider{
                 .id = name,
-                .authorize_url = try std.fmt.allocPrint(alloc, didp.authorize_url, args),
-                .token_url = try std.fmt.allocPrint(alloc, didp.token_url, args),
-                .me_url = try std.fmt.allocPrint(alloc, didp.me_url, args),
+                .authorize_url = try nio.fmt.allocPrint(alloc, didp.authorize_url, args),
+                .token_url = try nio.fmt.allocPrint(alloc, didp.token_url, args),
+                .me_url = try nio.fmt.allocPrint(alloc, didp.me_url, args),
                 .scope = didp.scope,
                 .name_prop = didp.name_prop,
                 .name_prefix = didp.name_prefix,
@@ -239,9 +240,9 @@ pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
         if (std.mem.eql(u8, didp.id, p_id)) {
             return Provider{
                 .id = name,
-                .authorize_url = try std.fmt.allocPrint(alloc, didp.authorize_url, args),
-                .token_url = try std.fmt.allocPrint(alloc, didp.token_url, args),
-                .me_url = try std.fmt.allocPrint(alloc, didp.me_url, args),
+                .authorize_url = try nio.fmt.allocPrint(alloc, didp.authorize_url, args),
+                .token_url = try nio.fmt.allocPrint(alloc, didp.token_url, args),
+                .me_url = try nio.fmt.allocPrint(alloc, didp.me_url, args),
                 .scope = didp.scope,
                 .name_prop = didp.name_prop,
                 .name_prefix = didp.name_prefix,
@@ -314,7 +315,7 @@ pub fn Handlers(comptime T: type) type {
             var req = try http_client.open(.POST, try std.Uri.parse(client.provider.token_url), .{
                 .server_header_buffer = &buf,
                 .headers = .{
-                    .authorization = .{ .override = try std.fmt.allocPrint(alloc, "Basic {s}", .{try extras.base64EncodeAlloc(alloc, try std.mem.join(alloc, ":", &.{ client.id, client.secret }))}) },
+                    .authorization = .{ .override = try nio.fmt.allocPrint(alloc, "Basic {s}", .{try extras.base64EncodeAlloc(alloc, try std.mem.join(alloc, ":", &.{ client.id, client.secret }))}) },
                     .content_type = .{ .override = "application/x-www-form-urlencoded" },
                 },
                 .extra_headers = &.{
@@ -341,7 +342,7 @@ pub fn Handlers(comptime T: type) type {
             var req2 = try http_client.open(.GET, try std.Uri.parse(client.provider.me_url), .{
                 .server_header_buffer = &buf,
                 .headers = .{
-                    .authorization = .{ .override = try std.fmt.allocPrint(alloc, "Bearer {s}", .{at.string}) },
+                    .authorization = .{ .override = try nio.fmt.allocPrint(alloc, "Bearer {s}", .{at.string}) },
                 },
                 .extra_headers = &.{
                     .{ .name = "Accept", .value = "application/json" },
@@ -395,14 +396,14 @@ fn redirectUri(request_headers: *const http.HeadersMap, alloc: std.mem.Allocator
     const maybe_tls = std.mem.eql(u8, xproto, "https");
     const proto: string = if (maybe_tls) "https" else "http";
     const host = request_headers.find("host").?;
-    return try std.fmt.allocPrint(alloc, "{s}://{s}{s}", .{ proto, host, callbackPath });
+    return try nio.fmt.allocPrint(alloc, "{s}://{s}{s}", .{ proto, host, callbackPath });
 }
 
 fn fixId(alloc: std.mem.Allocator, id: std.json.Value) !string {
     return switch (id) {
         .string => |v| v,
-        .integer => |v| try std.fmt.allocPrint(alloc, "{d}", .{v}),
-        .float => |v| try std.fmt.allocPrint(alloc, "{d}", .{v}),
+        .integer => |v| try nio.fmt.allocPrint(alloc, "{d}", .{v}),
+        .float => |v| try nio.fmt.allocPrint(alloc, "{d}", .{v}),
         else => unreachable,
     };
 }
