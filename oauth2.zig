@@ -8,6 +8,7 @@ const extras = @import("extras");
 const url = @import("url");
 const http = @import("http");
 const nio = @import("nio");
+const json = @import("json");
 const Base = @This();
 
 pub const Provider = struct {
@@ -332,17 +333,17 @@ pub fn Handlers(comptime T: type) type {
             const body_content = try req.reader().readAllAlloc(alloc, 1024 * 1024 * 5);
             if (req.response.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(req.response.status), body_content });
             if (req.response.status != .ok) return error.OauthBadToken;
-            const val = try extras.parse_json(alloc, body_content);
-
-            const tt = val.value.object.get("token_type").?.string;
+            const val = try json.parseFromSlice(alloc, "body.json", body_content, .{ .maximum_depth = 100, .support_trailing_commas = true });
+            val.acquire();
+            const tt = val.root.object().getS("token_type").?;
             if (!std.mem.eql(u8, tt, "bearer")) return fail(response_status, body_writer, "oauth2: invalid token type: {s}", .{tt});
-
-            const at = val.value.object.get("access_token") orelse return try fail(response_status, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
+            const at = val.root.object().getS("access_token") orelse return try fail(response_status, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
+            val.release();
 
             var req2 = try http_client.open(.GET, try std.Uri.parse(client.provider.me_url), .{
                 .server_header_buffer = &buf,
                 .headers = .{
-                    .authorization = .{ .override = try nio.fmt.allocPrint(alloc, "Bearer {s}", .{at.string}) },
+                    .authorization = .{ .override = try nio.fmt.allocPrint(alloc, "Bearer {s}", .{at}) },
                 },
                 .extra_headers = &.{
                     .{ .name = "Accept", .value = "application/json" },
@@ -356,11 +357,12 @@ pub fn Handlers(comptime T: type) type {
             const body_content2 = try req2.reader().readAllAlloc(alloc, 1024 * 1024 * 5);
             if (req2.response.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(req2.response.status), body_content2 });
             if (req2.response.status != .ok) return error.OauthBadUserinfo;
-            const val2 = try extras.parse_json(alloc, body_content2);
-
-            const id = try fixId(alloc, val2.value.object.get(client.provider.id_prop).?);
-            const name = val2.value.object.get(client.provider.name_prop).?.string;
-            try T.saveInfo(response_headers, alloc, client.provider, id, name, val.value, val2.value);
+            const val2 = try json.parseFromSlice(alloc, "body2.json", body_content2, .{ .maximum_depth = 100, .support_trailing_commas = true });
+            val2.acquire();
+            const id = try fixId(val2.root.object().getAny(client.provider.id_prop).?);
+            const name = val2.root.object().getS(client.provider.name_prop).?;
+            val2.release();
+            try T.saveInfo(response_headers, alloc, client.provider, id, name, val, val2);
 
             try response_headers.append("location", T.doneUrl);
             response_status.* = .found;
@@ -399,11 +401,10 @@ fn redirectUri(request_headers: *const http.HeadersMap, alloc: std.mem.Allocator
     return try nio.fmt.allocPrint(alloc, "{s}://{s}{s}", .{ proto, host, callbackPath });
 }
 
-fn fixId(alloc: std.mem.Allocator, id: std.json.Value) !string {
-    return switch (id) {
-        .string => |v| v,
-        .integer => |v| try nio.fmt.allocPrint(alloc, "{d}", .{v}),
-        .float => |v| try nio.fmt.allocPrint(alloc, "{d}", .{v}),
+fn fixId(id: json.ValueIndex) !string {
+    return switch (id.v()) {
+        .string => |v| v.to(),
+        .number => |v| v.to(),
         else => unreachable,
     };
 }
