@@ -265,8 +265,6 @@ pub fn clientByProviderId(clients: []const Client, name: string) ?Client {
     return null;
 }
 
-pub const IsLoggedInFn = fn (*std.http.Server.Response) anyerror!bool;
-
 pub fn Handlers(comptime T: type) type {
     comptime std.debug.assert(@hasDecl(T, "isLoggedIn"));
     comptime std.debug.assert(@hasDecl(T, "doneUrl"));
