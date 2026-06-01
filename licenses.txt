@@ -20,6 +20,3 @@ MPL-2.0:
 - git https://github.com/nektro/zig-pek
 - git https://github.com/nektro/zig-unicode-idna
 - git https://github.com/nektro/zig-whatwg-url
-
-Unspecified:
-- system_lib c
