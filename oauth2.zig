@@ -313,9 +313,9 @@ pub fn Handlers(comptime T: type) type {
             try params.append("state", "none");
             const req_body = try params.encode();
 
-            var req = try http_client.open(.POST, try std.Uri.parse(client.provider.token_url), .{
-                .server_header_buffer = &buf,
+            var req = try http_client.request(.POST, try std.Uri.parse(client.provider.token_url), .{
                 .headers = .{
+                    .accept_encoding = .{ .override = "identity" },
                     .authorization = .{ .override = try nio.fmt.allocPrint(alloc, "Basic {s}", .{try extras.base64EncodeAlloc(alloc, try std.mem.join(alloc, ":", &.{ client.id, client.secret }))}) },
                     .content_type = .{ .override = "application/x-www-form-urlencoded" },
                 },
@@ -325,14 +325,11 @@ pub fn Handlers(comptime T: type) type {
                 .redirect_behavior = .not_allowed,
             });
             defer req.deinit();
-            req.transfer_encoding = .{ .content_length = req_body.len };
-            try req.send();
-            try req.writer().writeAll(req_body);
-            try req.finish();
-            try req.wait();
-            const body_content = try req.reader().readAllAlloc(alloc, 1024 * 1024 * 5);
-            if (req.response.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(req.response.status), body_content });
-            if (req.response.status != .ok) return error.OauthBadToken;
+            try req.sendBodyComplete(req_body);
+            var resp = try req.receiveHead(&.{});
+            const body_content = try resp.reader(&buf).allocRemaining(alloc, .limited(1024 * 1024 * 5));
+            if (resp.head.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(resp.head.status), body_content });
+            if (resp.head.status != .ok) return error.OauthBadToken;
             const val = try json.parseFromSlice(alloc, "body.json", body_content, .{ .maximum_depth = 100, .support_trailing_commas = true });
             val.acquire();
             const tt = val.root.object().getS("token_type").?;
@@ -340,9 +337,9 @@ pub fn Handlers(comptime T: type) type {
             const at = val.root.object().getS("access_token") orelse return try fail(response_status, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
             val.release();
 
-            var req2 = try http_client.open(.GET, try std.Uri.parse(client.provider.me_url), .{
-                .server_header_buffer = &buf,
+            var req2 = try http_client.request(.GET, try std.Uri.parse(client.provider.me_url), .{
                 .headers = .{
+                    .accept_encoding = .{ .override = "identity" },
                     .authorization = .{ .override = try nio.fmt.allocPrint(alloc, "Bearer {s}", .{at}) },
                 },
                 .extra_headers = &.{
@@ -351,12 +348,11 @@ pub fn Handlers(comptime T: type) type {
                 .redirect_behavior = .not_allowed,
             });
             defer req2.deinit();
-            try req2.send();
-            try req2.finish();
-            try req2.wait();
-            const body_content2 = try req2.reader().readAllAlloc(alloc, 1024 * 1024 * 5);
-            if (req2.response.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(req2.response.status), body_content2 });
-            if (req2.response.status != .ok) return error.OauthBadUserinfo;
+            try req2.sendBodiless();
+            var resp2 = try req2.receiveHead(&.{});
+            const body_content2 = try resp2.reader(&buf).allocRemaining(alloc, .limited(1024 * 1024 * 5));
+            if (resp2.head.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(resp2.head.status), body_content2 });
+            if (resp2.head.status != .ok) return error.OauthBadUserinfo;
             const val2 = try json.parseFromSlice(alloc, "body2.json", body_content2, .{ .maximum_depth = 100, .support_trailing_commas = true });
             val2.acquire();
             const id = try fixId(val2.root.object().getAny(client.provider.id_prop).?);
