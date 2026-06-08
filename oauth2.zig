@@ -9,6 +9,8 @@ const url = @import("url");
 const http = @import("http");
 const nio = @import("nio");
 const json = @import("json");
+const builtin = @import("builtin");
+const root = @import("root");
 const Base = @This();
 
 pub const Provider = struct {
@@ -266,11 +268,6 @@ pub fn clientByProviderId(clients: []const Client, name: string) ?Client {
 }
 
 pub fn Handlers(comptime T: type) type {
-    comptime std.debug.assert(@hasDecl(T, "isLoggedIn"));
-    comptime std.debug.assert(@hasDecl(T, "doneUrl"));
-    comptime std.debug.assert(@hasDecl(T, "saveInfo"));
-    comptime std.debug.assert(@hasDecl(T, "callbackPath"));
-
     return struct {
         const Self = @This();
         pub var clients: []Client = &.{};
@@ -298,8 +295,9 @@ pub fn Handlers(comptime T: type) type {
             const client = clientByProviderId(Self.clients, state) orelse return try fail(response_status, body_writer, "error: No handler found for provider: {s}\n", .{state});
             const code = query.get("code") orelse return try fail(response_status, body_writer, "", .{});
 
+            const io = if (!builtin.is_test) root.io else std.Options.debug_io;
             var buf: [4096]u8 = @splat(0);
-            var http_client: std.http.Client = .{ .allocator = alloc };
+            var http_client: std.http.Client = .{ .allocator = alloc, .io = io };
             defer http_client.deinit();
 
             var params = url.SearchParams.init(alloc);

@@ -12,3 +12,7 @@ dependencies:
   - src: git https://github.com/nektro/zig-net-http
   - src: git https://github.com/nektro/zig-nio
   - src: git https://github.com/nektro/zig-json
+root_dependencies:
+  - src: git https://github.com/nektro/zig-nio
+  - src: git https://github.com/nektro/zig-net-http
+  - src: git https://github.com/nektro/zig-json
