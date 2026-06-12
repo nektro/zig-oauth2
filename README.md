@@ -24,4 +24,5 @@ HTTP handler functions to allow you to easily add OAuth2 login support to your Z
 - GitLab
 - Mastodon
 - Pleroma
+- OpenID Connect
 - ... and custom ones!

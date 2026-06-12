@@ -239,6 +239,59 @@ pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
             };
         }
     }
+    if (std.mem.eql(u8, p_id, "oidc")) {
+        const io = root.io;
+        var buf: [4096]u8 = @splat(0);
+        var http_client: std.http.Client = .{ .allocator = alloc, .io = io };
+        defer http_client.deinit();
+
+        const url_s = try nio.fmt.allocPrint(alloc, "https://{s}/.well-known/openid-configuration", .{domain});
+        defer alloc.free(url_s);
+
+        var req = try http_client.request(.GET, try std.Uri.parse(url_s), .{
+            .headers = .{
+                .accept_encoding = .{ .override = "identity" },
+            },
+            .redirect_behavior = .not_allowed,
+        });
+        defer req.deinit();
+        try req.sendBodiless();
+        var resp = try req.receiveHead(&.{});
+        const body_content = try resp.reader(&buf).allocRemaining(alloc, .limited(1024 * 1024 * 5));
+        defer alloc.free(body_content);
+        if (resp.head.status != .ok) std.log.scoped(.oauth).err("GET '{s}': {d}", .{ url_s, resp.head.status });
+        if (resp.head.status != .ok) std.log.scoped(.oauth).err("{s}", .{body_content});
+        if (resp.head.status != .ok) return null;
+        const val = try json.parseFromSlice(alloc, "body.json", body_content, .{ .maximum_depth = 100, .support_trailing_commas = true });
+        defer val.deinit(alloc);
+        val.acquire();
+        defer val.release();
+        const rootobj = val.root.object();
+        const authorize_url = rootobj.getS("authorization_endpoint") orelse {
+            std.log.scoped(.oauth).err("openid-configuration did not have the expected 'authorization_endpoint' key", .{});
+            return null;
+        };
+        const token_url = rootobj.getS("token_endpoint") orelse {
+            std.log.scoped(.oauth).err("openid-configuration did not have the expected 'token_endpoint' key", .{});
+            return null;
+        };
+        const me_url = rootobj.getS("userinfo_endpoint") orelse {
+            std.log.scoped(.oauth).err("openid-configuration did not have the expected 'userinfo_endpoint' key", .{});
+            return null;
+        };
+        return Provider{
+            .id = name,
+            .authorize_url = try alloc.dupe(u8, authorize_url),
+            .token_url = try alloc.dupe(u8, token_url),
+            .me_url = try alloc.dupe(u8, me_url),
+            .scope = "openid",
+            .name_prop = "name",
+            .name_prefix = "",
+            .id_prop = "sub",
+            .logo = icon_url("openid"),
+            .color = "#F78C40",
+        };
+    }
     inline for (comptime extras.globalOption("oauth2_dynamic_providers", []const Provider) orelse &.{}) |didp| {
         if (std.mem.eql(u8, didp.id, p_id)) {
             return Provider{
@@ -329,7 +382,7 @@ pub fn Handlers(comptime T: type) type {
             const val = try json.parseFromSlice(alloc, "body.json", body_content, .{ .maximum_depth = 100, .support_trailing_commas = true });
             val.acquire();
             const tt = val.root.object().getS("token_type").?;
-            if (!std.mem.eql(u8, tt, "bearer")) return fail(response_status, body_writer, "oauth2: invalid token type: {s}", .{tt});
+            if (!std.ascii.eqlIgnoreCase(tt, "bearer")) return fail(response_status, body_writer, "oauth2: invalid token type: expected 'bearer', got '{s}'", .{tt});
             const at = val.root.object().getS("access_token") orelse return try fail(response_status, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
             val.release();
 
