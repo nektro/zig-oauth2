@@ -285,7 +285,7 @@ pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
             .token_url = try alloc.dupe(u8, token_url),
             .me_url = try alloc.dupe(u8, me_url),
             .scope = "openid",
-            .name_prop = "name",
+            .name_prop = "preferred_username",
             .name_prefix = "",
             .id_prop = "sub",
             .logo = icon_url("openid"),
