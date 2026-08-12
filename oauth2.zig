@@ -96,7 +96,7 @@ pub const providers = struct {
         .color = "#1877F2",
     };
     pub var github = Provider{
-        .id = "github.com",
+        .id = "github",
         .authorize_url = "https://github.com/login/oauth/authorize",
         .token_url = "https://github.com/login/oauth/access_token",
         .me_url = "https://api.github.com/user",
