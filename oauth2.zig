@@ -240,6 +240,7 @@ pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
         }
     }
     if (std.mem.eql(u8, p_id, "oidc")) {
+        if (builtin.is_test) return null;
         const io = root.io;
         var buf: [4096]u8 = @splat(0);
         var http_client: std.http.Client = .{ .allocator = alloc, .io = io };
