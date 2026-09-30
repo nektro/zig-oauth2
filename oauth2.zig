@@ -239,14 +239,17 @@ pub fn providerById(alloc: std.mem.Allocator, name: string) !?Provider {
             };
         }
     }
-    if (std.mem.eql(u8, p_id, "oidc")) {
+    if (std.mem.eql(u8, p_id, "oidc") or std.mem.eql(u8, p_id, "oidc_test")) {
         if (builtin.is_test) return null;
         const io = root.io;
         var buf: [4096]u8 = @splat(0);
         var http_client: std.http.Client = .{ .allocator = alloc, .io = io };
         defer http_client.deinit();
 
-        const url_s = try nio.fmt.allocPrint(alloc, "https://{s}/.well-known/openid-configuration", .{domain});
+        const url_s = if (std.mem.eql(u8, p_id, "oidc"))
+            try nio.fmt.allocPrint(alloc, "https://{s}/.well-known/openid-configuration", .{domain})
+        else
+            try nio.fmt.allocPrint(alloc, "http://{s}/.well-known/openid-configuration", .{domain});
         defer alloc.free(url_s);
 
         var req = try http_client.request(.GET, try std.Uri.parse(url_s), .{
