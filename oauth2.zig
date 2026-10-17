@@ -11,6 +11,7 @@ const nio = @import("nio");
 const json = @import("json");
 const builtin = @import("builtin");
 const root = @import("root");
+const tracer = @import("tracer");
 const Base = @This();
 
 pub const Provider = struct {
@@ -349,8 +350,11 @@ pub fn Handlers(comptime T: type) type {
         pub fn callback(request: *http.ServerRequest, body_writer: anytype, alloc: std.mem.Allocator, query: url.SearchParams, request_headers: *const http.HeadersMap, response_status: *http.Status, response_headers: *http.HeadersMap) !void {
             _ = request;
             const state = query.get("state") orelse return try fail(response_status, body_writer, "", .{});
-            const client = clientByProviderId(Self.clients, state) orelse return try fail(response_status, body_writer, "error: No handler found for provider: {s}\n", .{state});
+            const state_idp, const state_referer = extras.splitScalarN(u8, state, '|', 2) orelse return fail(response_status, body_writer, "error: state not returned intact", .{});
+            const client = clientByProviderId(Self.clients, state_idp) orelse return try fail(response_status, body_writer, "error: No handler found for provider: {s}\n", .{state});
             const code = query.get("code") orelse return try fail(response_status, body_writer, "", .{});
+            const referer = try url.URL.parse(alloc, state_referer, null);
+            if (!std.mem.eql(u8, referer.host, tracer.otel.@"server.address".?)) return fail(response_status, body_writer, "error: referer '{s}' does not match expected hostname '{s}'", .{ referer.host, tracer.otel.@"server.address".? });
 
             const io = if (!builtin.is_test) root.io else std.Options.debug_io;
             var buf: [4096]u8 = @splat(0);
@@ -417,7 +421,7 @@ pub fn Handlers(comptime T: type) type {
                 const name = val2.root.object().getS(client.provider.name_prop).?;
                 try T.saveInfo(response_headers, alloc, client.provider, id, name, val, val2);
             }
-            try response_headers.append("location", T.doneUrl);
+            try response_headers.append("location", referer.pathname);
             response_status.* = .found;
         }
     };
@@ -425,7 +429,7 @@ pub fn Handlers(comptime T: type) type {
 
 fn loginOne(request: *http.ServerRequest, alloc: std.mem.Allocator, comptime T: type, client: Client, callbackPath: string, request_headers: *const http.HeadersMap, response_status: *http.Status, response_headers: *http.HeadersMap) !void {
     if (try T.isLoggedIn(request, alloc)) {
-        try response_headers.append("location", T.doneUrl);
+        try response_headers.append("location", "/");
     } else {
         const idp = client.provider;
         var params = url.SearchParams.init(alloc);
@@ -434,7 +438,7 @@ fn loginOne(request: *http.ServerRequest, alloc: std.mem.Allocator, comptime T: 
         try params.append("response_type", "code");
         try params.append("scope", idp.scope);
         try params.append("duration", "temporary");
-        try params.append("state", idp.id);
+        try params.append("state", try std.mem.join(alloc, "|", &.{ idp.id, request_headers.find("referer") orelse "" })); // add referer to state
         const authurl = try std.mem.join(alloc, "?", &.{ idp.authorize_url, try params.encode() });
         try response_headers.append("location", authurl);
     }
