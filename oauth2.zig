@@ -458,7 +458,7 @@ fn fixId(id: json.ValueIndex) !string {
     return switch (id.v()) {
         .string => |v| v.to(),
         .number => |v| v.to(),
-        else => unreachable,
+        else => error.@"unreachable",
     };
 }
 
