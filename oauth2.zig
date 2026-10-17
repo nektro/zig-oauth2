@@ -384,11 +384,14 @@ pub fn Handlers(comptime T: type) type {
             if (resp.head.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(resp.head.status), body_content });
             if (resp.head.status != .ok) return error.OauthBadToken;
             const val = try json.parseFromSlice(alloc, "body.json", body_content, .{ .maximum_depth = 100, .support_trailing_commas = true });
-            val.acquire();
-            const tt = val.root.object().getS("token_type").?;
-            if (!std.ascii.eqlIgnoreCase(tt, "bearer")) return fail(response_status, body_writer, "oauth2: invalid token type: expected 'bearer', got '{s}'", .{tt});
-            const at = val.root.object().getS("access_token") orelse return try fail(response_status, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
-            val.release();
+            const at = blk: {
+                val.acquire();
+                defer val.release();
+                const tt = val.root.object().getS("token_type").?;
+                if (!std.ascii.eqlIgnoreCase(tt, "bearer")) return fail(response_status, body_writer, "oauth2: invalid token type: expected 'bearer', got '{s}'", .{tt});
+                const at = val.root.object().getS("access_token") orelse return try fail(response_status, body_writer, "Identity Provider Login Error!\n{s}", .{body_content});
+                break :blk at;
+            };
 
             var req2 = try http_client.request(.GET, try std.Uri.parse(client.provider.me_url), .{
                 .headers = .{
@@ -407,12 +410,13 @@ pub fn Handlers(comptime T: type) type {
             if (resp2.head.status != .ok) std.log.scoped(.oauth).debug("{s}: {s}", .{ @tagName(resp2.head.status), body_content2 });
             if (resp2.head.status != .ok) return error.OauthBadUserinfo;
             const val2 = try json.parseFromSlice(alloc, "body2.json", body_content2, .{ .maximum_depth = 100, .support_trailing_commas = true });
-            val2.acquire();
-            const id = try fixId(val2.root.object().getAny(client.provider.id_prop).?);
-            const name = val2.root.object().getS(client.provider.name_prop).?;
-            val2.release();
-            try T.saveInfo(response_headers, alloc, client.provider, id, name, val, val2);
-
+            {
+                val2.acquire();
+                defer val2.release();
+                const id = try fixId(val2.root.object().getAny(client.provider.id_prop).?);
+                const name = val2.root.object().getS(client.provider.name_prop).?;
+                try T.saveInfo(response_headers, alloc, client.provider, id, name, val, val2);
+            }
             try response_headers.append("location", T.doneUrl);
             response_status.* = .found;
         }
